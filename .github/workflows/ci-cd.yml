@@ -170,7 +170,7 @@ jobs:
         run: docker push $BACKEND_IMAGE:${{ github.sha }}
 
 ####################################################
-# DEPLOY
+# DEPLOY WITH SECRETS UPDATED
 ####################################################
 
   deploy:
