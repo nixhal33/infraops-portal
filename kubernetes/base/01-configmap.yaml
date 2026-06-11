@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: infraops-config
+  namespace: infraops
+data:
+  APP_NAME: InfraOps Portal API
+  ENVIRONMENT: production
+  API_PREFIX: /api
+  CORS_ORIGINS: http://infraops.local,http://api.infraops.local
+  MYSQL_DATABASE: infraops
+  MYSQL_USER: infraops
+  DATABASE_HOST: infraops-mariadb

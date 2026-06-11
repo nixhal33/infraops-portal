@@ -1,0 +1,56 @@
+namespace: infraops
+
+frontend:
+  image: infraops-frontend:1.0.0
+  replicas: 2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 192Mi
+
+backend:
+  image: infraops-backend:1.0.0
+  replicas: 2
+  jwtSecret: change-this-jwt-secret-before-production
+  resources:
+    requests:
+      cpu: 100m
+      memory: 160Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+mariadb:
+  image: mariadb:11.4
+  database: infraops
+  user: infraops
+  password: change-this-db-password
+  rootPassword: change-this-root-password
+  storage: 2Gi
+  resources:
+    requests:
+      cpu: 150m
+      memory: 256Mi
+    limits:
+      cpu: 750m
+      memory: 768Mi
+
+ingress:
+  enabled: true
+  className: nginx
+  host: infraops.local
+
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  storage: 2Gi
+
+resourceQuota:
+  enabled: true
+  requestsCpu: "1"
+  requestsMemory: 1Gi
+  limitsCpu: "3"
+  limitsMemory: 3Gi

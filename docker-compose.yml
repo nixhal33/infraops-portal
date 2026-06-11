@@ -1,0 +1,59 @@
+services:
+  mariadb:
+    image: mariadb:11.4
+    container_name: infraops-mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-infraops}
+      MYSQL_USER: ${MYSQL_USER:-infraops}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-infraops_password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01-schema-reference.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: infraops-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-infraops}:${MYSQL_PASSWORD:-infraops_password}@mariadb:3306/${MYSQL_DATABASE:-infraops}
+      JWT_SECRET: ${JWT_SECRET:-replace-with-a-long-random-secret}
+      CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    networks:
+      default:
+        aliases:
+          - infraops-backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    container_name: infraops-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+
+volumes:
+  mariadb_data:
