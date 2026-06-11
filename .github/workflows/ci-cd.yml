@@ -182,7 +182,8 @@ jobs:
       - name: Deploy Server
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.SERVER_HOST }}
+         # host: ${{ secrets.SERVER_HOST }}
+          host: 202.166.217.236
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_PSSH_KEY }}
 
