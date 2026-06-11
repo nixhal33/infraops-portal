@@ -212,6 +212,8 @@ jobs:
 
               backend:
                 image: kubenix/infraops-backend:${{ github.sha }}
+                ports:
+                    - "8000:8000"
                 restart: always
                 depends_on:
                   - mariadb
