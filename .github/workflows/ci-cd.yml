@@ -235,5 +235,6 @@ jobs:
 
             docker compose up -d --remove-orphans
 
-
             docker ps
+
+            curl http://localhost:8000/health
