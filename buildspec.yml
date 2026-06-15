@@ -1,0 +1,26 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com
+
+  build:
+    commands:
+      - echo Building frontend image...
+      - docker build -t infraops-portal-frontend ./frontend
+
+      - echo Building backend image...
+      - docker build -t infraops-portal-backend ./backend
+
+      - docker tag $FRONTEND_REPOSITORY:latest $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/infraops-portal-frontend:latest
+      - docker tag $BACKEND_REPOSITORY:latest $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/infraops-portal-backend:latest
+
+  post_build:
+    commands:
+      - echo Pushing frontend image...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/$FRONTEND_REPOSITORY/infraops-portal-frontend:latest
+
+      - echo Pushing backend image...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/$BACKEND_REPOSITORY/infraops-portal-backend:latest
