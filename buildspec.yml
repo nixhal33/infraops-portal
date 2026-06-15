@@ -1,26 +1,27 @@
 version: 0.2
-# code push one final time
+
 phases:
   pre_build:
     commands:
       - echo Logging in to Amazon ECR...
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
   build:
     commands:
       - echo Building frontend image...
-      - docker build -t infraops-portal-frontend ./frontend
+      - docker build -t $FRONTEND_REPOSITORY ./frontend
 
       - echo Building backend image...
-      - docker build -t infraops-portal-backend ./backend
+      - docker build -t $BACKEND_REPOSITORY ./backend
 
-      - docker tag $FRONTEND_REPOSITORY:latest $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/infraops-portal-frontend:latest
-      - docker tag $BACKEND_REPOSITORY:latest $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/infraops-portal-backend:latest
+      - docker tag $FRONTEND_REPOSITORY:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$FRONTEND_REPOSITORY:latest
+
+      - docker tag $BACKEND_REPOSITORY:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$BACKEND_REPOSITORY:latest
 
   post_build:
     commands:
       - echo Pushing frontend image...
-      - docker push $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/$FRONTEND_REPOSITORY/infraops-portal-frontend:latest
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$FRONTEND_REPOSITORY:latest
 
       - echo Pushing backend image...
-      - docker push $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/$BACKEND_REPOSITORY/infraops-portal-backend:latest
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$BACKEND_REPOSITORY:latest
