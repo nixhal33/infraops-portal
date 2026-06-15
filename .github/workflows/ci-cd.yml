@@ -1,0 +1,240 @@
+name: InfraOps Portal CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  FRONTEND_IMAGE: kubenix/infraops-frontend
+  BACKEND_IMAGE: kubenix/infraops-backend
+
+jobs:
+
+####################################################
+# TESTS
+####################################################
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      ##################################
+      # Frontend Build Test
+      ##################################
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Frontend Install
+        working-directory: frontend
+        run: npm install
+
+      - name: Frontend Build
+        working-directory: frontend
+        run: npm run build
+
+      ##################################
+      # Backend Tests
+      ##################################
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Backend Dependencies
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run Backend Tests
+        working-directory: backend
+        env:
+          PYTHONPATH: .
+        run: pytest
+
+####################################################
+# SECURITY CHECK
+####################################################
+
+  security:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      ##################################
+      # Secrets Scan
+      ##################################
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      ##################################
+      # Dockerfile Scan
+      ##################################
+
+      - name: Hadolint Frontend
+        uses: hadolint/hadolint-action@v3.3.0
+        with:
+          dockerfile: frontend/Dockerfile
+
+      - name: Hadolint Backend
+        uses: hadolint/hadolint-action@v3.3.0
+        with:
+          dockerfile: backend/Dockerfile
+
+      ##################################
+      # Source Code Scan
+      ##################################
+
+      - name: Trivy Filesystem Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+
+####################################################
+# BUILD + PUSH
+####################################################
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: security
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker Login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      ##################################
+      # FRONTEND
+      ##################################
+
+      - name: Build Frontend
+        run: |
+          docker build \
+          -t $FRONTEND_IMAGE:${{ github.sha }} \
+          -f frontend/Dockerfile \
+          frontend
+
+      ##################################
+      # BACKEND
+      ##################################
+
+      - name: Build Backend
+        run: |
+          docker build \
+          -t $BACKEND_IMAGE:${{ github.sha }} \
+          -f backend/Dockerfile \
+          backend
+
+      ##################################
+      # IMAGE SCAN
+      ##################################
+
+      - name: Scan Frontend Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          severity: HIGH,CRITICAL
+
+      - name: Scan Backend Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          severity: HIGH,CRITICAL
+
+      ##################################
+      # PUSH
+      ##################################
+
+      - name: Push Frontend
+        run: docker push $FRONTEND_IMAGE:${{ github.sha }}
+
+      - name: Push Backend
+        run: docker push $BACKEND_IMAGE:${{ github.sha }}
+
+####################################################
+# DEPLOY 
+####################################################
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: docker
+
+    steps:
+
+      - name: Deploy Server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_PSSH_KEY }}
+
+          script: |
+
+            mkdir -p /home/ubuntu/infraops-portal
+
+            cd /home/ubuntu/infraops-portal
+
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | \
+            docker login \
+            -u "${{ secrets.DOCKERHUB_USERNAME }}" \
+            --password-stdin
+
+            cat > docker-compose.yml << EOF
+
+            services:
+
+              mariadb:
+                image: mariadb:11
+                restart: always
+                environment:
+                  MYSQL_ROOT_PASSWORD: rootpass
+                  MYSQL_DATABASE: infraops
+                volumes:
+                  - mariadb_data:/var/lib/mysql
+
+              backend:
+                image: kubenix/infraops-backend:${{ github.sha }}
+                ports:
+                    - "8000:8000"
+                restart: always
+                depends_on:
+                  - mariadb
+
+              frontend:
+                image: kubenix/infraops-frontend:${{ github.sha }}
+                ports:
+                  - "81:80"
+                restart: always
+                depends_on:
+                  - backend
+
+            volumes:
+              mariadb_data:
+
+            EOF
+
+            docker compose pull
+
+            docker compose up -d --remove-orphans
+
+            docker ps
+
+            curl http://localhost:8000/health
