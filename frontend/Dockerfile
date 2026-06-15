@@ -1,4 +1,4 @@
-FROM 885740665747.dkr.ecr.us-east-1.amazonaws.com/infraops-portal-node
+FROM 885740665747.dkr.ecr.us-east-1.amazonaws.com/infraops-portal-node as build
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
