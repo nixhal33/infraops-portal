@@ -1,4 +1,4 @@
-FROM $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/infraops-portal-python
+FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
