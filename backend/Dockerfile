@@ -1,4 +1,4 @@
-FROM $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/infraops-portal-python
+FROM 885740665747.dkr.ecr.us-east-1.amazonaws.com/infraops-portal-python
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
