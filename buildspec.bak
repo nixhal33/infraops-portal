@@ -2,7 +2,7 @@ version: 0.2
 
 env:
   parameter-store:
-    AWS_ACCOUNT_ID: /infraops-portal/aws/account-id  # This fetches your Account ID
+    AWS_ACCOUNT_ID: /infraops/aws/account-id  # This fetches your Account ID
 
 phases:
   pre_build:
@@ -13,20 +13,13 @@ phases:
   build:
     commands:
       - echo Building frontend image...
-      # Pass Account ID as build argument
-      - docker build 
-        --build-arg AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID 
-        -t $FRONTEND_REPOSITORY:latest 
-        ./frontend
+      - docker build -t $FRONTEND_REPOSITORY ./frontend
 
       - echo Building backend image...
-      # Pass Account ID as build argument
-      - docker build 
-        --build-arg AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID 
-        -t $BACKEND_REPOSITORY:latest 
-        ./backend
+      - docker build -t $BACKEND_REPOSITORY ./backend
 
       - docker tag $FRONTEND_REPOSITORY:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$FRONTEND_REPOSITORY:latest
+
       - docker tag $BACKEND_REPOSITORY:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$BACKEND_REPOSITORY:latest
 
   post_build:
