@@ -1,4 +1,4 @@
-FROM 885740665747.dkr.ecr.us-east-1.amazonaws.com/infraops-portal-python
+FROM 885740665747.dkr.ecr.us-east-1.amazonaws.com/infraops-portal-python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
