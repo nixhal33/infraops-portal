@@ -29,8 +29,8 @@ spec:
       serviceAccountName: frontend-sa
       containers:
         - name: frontend
-          image: infraops-frontend:1.0.0
-          imagePullPolicy: IfNotPresent
+          image: kubenix/infraops-frontend:v.1.0.0
+          imagePullPolicy: Always
           ports:
             - containerPort: 80
           readinessProbe:
