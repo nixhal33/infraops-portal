@@ -1,0 +1,57 @@
+namespace: infraops
+
+frontend:
+  image: kubenix/infraops-frontend:v.1.0.0
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 192Mi
+
+backend:
+  image: kubenix/infraops-backend:v.1.0.0
+  replicas: 1
+  jwtSecret: 5U2x4fogfRdaOfdLRFpeMcMOkE48YP42AwuRpqujDrM=
+  resources:
+    requests:
+      cpu: 100m
+      memory: 160Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+mariadb:
+  image: mariadb:11.4
+  database: infraops
+  user: infraops
+  password: infraops123
+  rootPassword: root123
+  storage: 2Gi
+  resources:
+    requests:
+      cpu: 150m
+      memory: 256Mi
+    limits:
+      cpu: 750m
+      memory: 768Mi
+
+ingress:
+  enabled: true
+  className: traefik
+  host: infraops.local.com
+  path: /
+
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  storage: 2Gi
+
+resourceQuota:
+  enabled: true
+  requestsCpu: "1"
+  requestsMemory: 1Gi
+  limitsCpu: "3"
+  limitsMemory: 3Gi
