@@ -11,3 +11,4 @@ dist/
 build/
 *.zip
 .DS_Store
+database/
