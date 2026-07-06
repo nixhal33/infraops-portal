@@ -1,0 +1,63 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: infraops-ingress
+  namespace: {{ .Values.namespace }}
+  annotations:
+    # Keeps your path rewriting intact for the API gateway matching
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    # 🌐 RULE 1: Matches your laptop using the local domain name
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: infraops-backend
+                port:
+                  number: 8000  # ✨ Fixed the typo here
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: infraops-backend
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: infraops-frontend
+                port:
+                  number: 80
+
+# 📱 RULE 2: Fallback rule for smartphone using the raw LoadBalancer IP
+    - http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: infraops-backend
+                port:
+                  number: 8000
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: infraops-backend
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: infraops-frontend
+                port:
+                  number: 80
+{{- end }}
