@@ -1,7 +1,7 @@
 namespace: infraops
 
 frontend:
-  image: kubenix/infraops-portal-frontend:latest
+  image: kubenix/infraops-frontend:v.1.0.2
   replicas: 1
   resources:
     requests:
@@ -12,7 +12,7 @@ frontend:
       memory: 192Mi
 
 backend:
-  image: kubenix/infraops-portal-backend:latest
+  image: kubenix/infraops-backend:v.1.0.2
   replicas: 1
   jwtSecret: 5U2x4fogfRdaOfdLRFpeMcMOkE48YP42AwuRpqujDrM=
   resources:
