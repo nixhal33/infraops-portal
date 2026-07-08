@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infraops-portal
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nixhal33/infraops-portal.git
+    targetRevision: main
+    path: helm/infraops-portal
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: infraops
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
