@@ -1,13 +1,18 @@
-apiVersion: v1
-kind: ConfigMap
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
 metadata:
-  name: infraops-prometheus-scrape-example
-  namespace: monitoring
-data:
-  scrape-config.yaml: |
-    scrape_configs:
-      - job_name: infraops-backend
-        metrics_path: /api/monitoring/metrics
-        static_configs:
-          - targets:
-              - infraops-backend.infraops.svc.cluster.local:8000
+  name: infraops-backend-monitor
+  namespace: observability
+  labels:
+    release: kube-prometheus-stack # standard label for MicroK8s observability to find it
+spec:
+  selector:
+    matchLabels:
+      app: infraops-backend # Make sure this matches the label on your app's Service (SVC)
+  namespaceSelector:
+    matchNames:
+      - infraops # The namespace where your backend app runs
+  endpoints:
+  - port: http # The name of the port defined in your backend Service definition
+    path: /api/observability/metrics
+

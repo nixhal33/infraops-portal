@@ -1,0 +1,119 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: infraops-grafana-dashboard
+  namespace: observability
+  labels:
+    grafana_dashboard: "1" # Triggers the sidecar collection script
+data:
+  infraops-dashboard.json: |
+    {
+      "id": null,
+      "uid": "infraops-raw-app-perf",
+      "title": "InfraOps Portal - App Raw Performance",
+      "schemaVersion": 39,
+      "refresh": "5s",
+      "panels": [
+        {
+          "type": "gauge",
+          "title": "CPU Utilization",
+          "id": 1,
+          "targets": [{"expr": "sum(node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace='infraops', container='backend'}) * 100"}],
+          "gridPos": {"x": 0, "y": 0, "w": 6, "h": 5},
+          "fieldConfig": {"defaults": {"unit": "percent", "max": 100, "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 80, "color": "orange"}, {"value": 90, "color": "red"}]}}}
+        },
+        {
+          "type": "gauge",
+          "title": "Memory Consumption",
+          "id": 2,
+          "targets": [{"expr": "sum(container_memory_working_set_bytes{namespace='infraops', container='backend'})"}],
+          "gridPos": {"x": 6, "y": 0, "w": 6, "h": 5},
+          "fieldConfig": {"defaults": {"unit": "bytes", "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 85, "color": "orange"}]}}}
+        },
+        {
+          "type": "stat",
+          "title": "Throughput / Request Rate",
+          "id": 3,
+          "targets": [{"expr": "sum(rate(http_requests_total{namespace='infraops', app='infraops-backend'}[5m]))"}],
+          "gridPos": {"x": 12, "y": 0, "w": 6, "h": 5},
+          "fieldConfig": {"defaults": {"unit": "reqps"}}
+        },
+        {
+          "type": "stat",
+          "title": "HTTP Error Rate (5xx)",
+          "id": 4,
+          "targets": [{"expr": "sum(rate(http_requests_total{namespace='infraops', app='infraops-backend', status=~'5.*'}[5m]))"}],
+          "gridPos": {"x": 18, "y": 0, "w": 6, "h": 5},
+          "fieldConfig": {"defaults": {"unit": "reqps", "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 0.1, "color": "red"}]}}}
+        },
+        {
+          "type": "timeseries",
+          "title": "Response Time / Latency (P95)",
+          "id": 5,
+          "targets": [{"expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace='infraops', app='infraops-backend'}[5m])) by (le))"}],
+          "gridPos": {"x": 0, "y": 5, "w": 12, "h": 7},
+          "fieldConfig": {"defaults": {"unit": "s"}}
+        },
+        {
+          "type": "timeseries",
+          "title": "Network I/O (Bandwidth)",
+          "id": 6,
+          "targets": [
+            {"expr": "sum(rate(container_network_receive_bytes_total{namespace='infraops', pod=~'infraops-backend.*'}[5m]))", "legendFormat": "Inbound (Rx)"},
+            {"expr": "sum(rate(container_network_transmit_bytes_total{namespace='infraops', pod=~'infraops-backend.*'}[5m]))", "legendFormat": "Outbound (Tx)"}
+          ],
+          "gridPos": {"x": 12, "y": 5, "w": 12, "h": 7},
+          "fieldConfig": {"defaults": {"unit": "Bps"}}
+        },
+        {
+          "type": "timeseries",
+          "title": "Database Active Connections & Saturation",
+          "id": 7,
+          "targets": [{"expr": "sum(infraops_database_connections_active) or sum(mysql_global_status_threads_connected)"}],
+          "gridPos": {"x": 0, "y": 12, "w": 12, "h": 6},
+          "fieldConfig": {"defaults": {"unit": "short"}}
+        },
+        {
+          "type": "timeseries",
+          "title": "Disk I/O Write Operations",
+          "id": 8,
+          "targets": [{"expr": "sum(rate(container_fs_writes_bytes_total{namespace='infraops', pod=~'infraops-backend.*'}[5m]))"}],
+          "gridPos": {"x": 12, "y": 12, "w": 12, "h": 6},
+          "fieldConfig": {"defaults": {"unit": "Bps"}}
+        }
+      ]
+    }
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: infraops-backend-monitor
+  namespace: observability
+  labels:
+    release: kube-prom-stack
+spec:
+  selector:
+    matchLabels:
+      app: infraops-backend
+  namespaceSelector:
+    any: true  # Allows cross-namespace collection so Prometheus can pull from 'infraops'
+  endpoints:
+  - port: http
+    path: /api/monitoring/metrics
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-prom-stack-grafana
+  namespace: observability
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 3000
+      nodePort: 32100
+  selector:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: kube-prom-stack
+
