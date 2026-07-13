@@ -3,6 +3,9 @@ kind: Service
 metadata:
   name: infraops-backend
   namespace: {{ .Values.namespace }}
+  labels:
+    app: infraops-backend
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
   annotations:
     prometheus.io/scrape: "true"
     prometheus.io/path: /api/monitoring/metrics

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: infraops-grafana-dashboard
+  namespace: observability # Keeps it where Grafana can scan it
+  labels:
+    grafana_dashboard: "1" # Tells the sidecar to import it
+data:
+  infraops-dashboard.json: |
+    {
+      "title": "InfraOps Portal",
+      "schemaVersion": 39,
+      "panels": [
+        {"type": "stat", "title": "Assets", "targets": [{"expr": "infraops_assets_total"}], "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4}},
+        {"type": "stat", "title": "Offline Assets", "targets": [{"expr": "infraops_assets_offline"}], "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4}},
+        {"type": "stat", "title": "Open Tickets", "targets": [{"expr": "infraops_tickets_open"}], "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4}},
+        {"type": "stat", "title": "Critical Tickets", "targets": [{"expr": "infraops_tickets_critical"}], "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4}}
+      ]
+    }
+

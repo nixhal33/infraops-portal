@@ -1,0 +1,35 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: infraops-backend-monitor
+  namespace: observability
+  labels:
+    release: kube-prom-stack # Matches the exact MicroK8s installation token
+spec:
+  selector:
+    matchLabels:
+      app: infraops-backend # Make sure this matches the label on your app's Service (SVC)
+  namespaceSelector:
+    matchNames:
+      - infraops # The namespace where your backend app runs
+  endpoints:
+  - port: http # The name of the port in your backend Service definition
+    path: /api/monitoring/metrics
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-prom-stack-kube-prome-prometheus
+  namespace: observability
+spec:
+  type: NodePort # Exposes Prometheus permanently without a Cloud LoadBalancer
+  ports:
+    - name: http-web
+      port: 9090
+      targetPort: 9090
+      nodePort: 32200 # Locked port for your web browser
+  selector:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: kube-prom-stack-kube-prome-prometheus
+
