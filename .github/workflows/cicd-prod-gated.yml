@@ -1,0 +1,157 @@
+name: Production Gated CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  FRONTEND_IMAGE: kubenix/infraops-frontend
+  BACKEND_IMAGE: kubenix/infraops-backend
+  DOCKER_REGISTRY: docker.com
+  DOCKER_ORG: myorg
+  SONAR_PROJECT_KEY: infraops-portal
+
+jobs:
+  # GATE 1: Code Verification & Compilation
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run Frontend Linter (Syntax Gate)
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build Frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Setup Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Backend Dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run Backend Unit Tests with Coverage
+        working-directory: backend
+        env:
+          PYTHONPATH: .
+        run: pytest --cov=.
+
+  # GATE 2: Deep Code Quality & Security Scanning (Fails if quality gates aren't met)
+  code-quality:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Shallow clones break SonarQube analysis
+
+      - name: SonarQube Scan Gate
+        uses: sonarsource/sonarqube-scan-action@v3
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+
+  # GATE 3: Containerization & Vulnerability Scanning
+  container-security:
+    needs: code-quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Build Frontend Docker Image Locally
+        run: |
+          docker build -t $FRONTEND_IMAGE:${{ github.sha }} -f frontend/Dockerfile frontend
+
+      - name: Build Backend Docker Image Locally
+        run: |
+          docker build -t $BACKEND_IMAGE:${{ github.sha }} -f backend/Dockerfile backend
+
+      - name: Trivy Frontend Image Scan Gate
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      - name: Trivy Backend Image Scan Gate
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      - name: Log in to Registry & Push Images
+        if: success()
+        run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login -u "${{ secrets.REGISTRY_USERNAME }}" "${{ env.DOCKER_REGISTRY }}"
+          docker tag $FRONTEND_IMAGE:${{ github.sha }} "${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_ORG }}/infraops-frontend:${{ github.sha }}"
+          docker tag $BACKEND_IMAGE:${{ github.sha }} "${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_ORG }}/infraops-backend:${{ github.sha }}"
+          docker push "${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_ORG }}/infraops-frontend:${{ github.sha }}"
+          docker push "${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_ORG }}/infraops-backend:${{ github.sha }}"
+
+  # GATE 4: Deploy to Staging & Run E2E Integration Tests
+  staging-deployment:
+    needs: container-security
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Staging Cluster
+        run: |
+          echo "Deploying frontend and backend images to staging..."
+          echo "Frontend image: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_ORG }}/infraops-frontend:${{ github.sha }}"
+          echo "Backend image: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_ORG }}/infraops-backend:${{ github.sha }}"
+          # Replace with real helm/kubectl/aws ecs deploy commands
+
+      - name: Run Cypress End-to-End Tests (Integration Gate)
+        uses: cypress-io/github-action@v6
+        with:
+          wait-on: 'https://myapp.com'
+          wait-on-timeout: 120
+
+  # GATE 5 & 6: Production Deployment (Protected by Manual Approvers & Environment Restrictions)
+  production-deployment:
+    needs: staging-deployment
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://myapp.com
+    steps:
+      - name: Deploy to Production
+        run: |
+          echo "Staging tests passed and manual sign-off received!"
+          echo "Executing zero-downtime rolling deployment to Production Cluster..."
+          # Add your real production deployment command here
