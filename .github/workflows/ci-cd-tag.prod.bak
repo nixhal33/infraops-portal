@@ -3,6 +3,8 @@ name: Production Gated CI/CD Pipeline
 on:
   push:
     branches: [ main ]
+    tags:
+      - 'v*' # Triggers on releases (e.g., v1.0.0)
   pull_request:
     branches: [ main ]
 
@@ -12,7 +14,6 @@ env:
   DOCKER_REGISTRY: docker.io
   DOCKER_ORG: myorg
   SONAR_PROJECT_KEY: infraops-portal
-  IMAGE_TAG: ${{ github.sha }} # 🌟 Static globally available SHA tag
 
 jobs:
   # =========================================================================
@@ -129,6 +130,15 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
+      # 🌟 FIX: Compute the version tag and inject into the pipeline runner environment
+      - name: Set Dynamic Image Tag
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "IMAGE_TAG=${{ github.ref_name }}" >> $GITHUB_ENV
+          else
+            echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_ENV
+          fi
+
       - name: Build Frontend Docker Image Locally
         run: |
           docker build -t ${{ env.FRONTEND_IMAGE }}:${{ env.IMAGE_TAG }} -f frontend/Dockerfile frontend
@@ -157,7 +167,7 @@ jobs:
 
       - name: Log in to Registry & Push Images
         run: |
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" "${{ env.DOCKER_REGISTRY }}"
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login -u "${{ secrets.REGISTRY_USERNAME }}" "${{ env.DOCKER_REGISTRY }}"
           
           # Tag and push frontend
           docker tag ${{ env.FRONTEND_IMAGE }}:${{ env.IMAGE_TAG }} "${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_ORG }}/infraops-frontend:${{ env.IMAGE_TAG }}"
@@ -178,16 +188,25 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
+      # 🌟 FIX: Compute the version tag for the staging context
+      - name: Set Dynamic Image Tag
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; test
+            echo "IMAGE_TAG=${{ github.ref_name }}" >> $GITHUB_ENV
+          else
+            echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_ENV
+          fi
+
       - name: Deploy to Staging Cluster
         run: |
           echo "Deploying applications to Staging..."
           echo "Using Version Tag: ${{ env.IMAGE_TAG }}"
-          # Insert staging deployment commands here (Helm/Kubectl)
+          # Insert your staging helm upgrade or kubectl apply commands here
 
       - name: Run Cypress End-to-End Tests (Integration Gate)
         uses: cypress-io/github-action@v6
         with:
-          wait-on: 'https://yourcompany.com'
+          wait-on: 'https://staging.infraops.yourcompany.com' # Updated placeholder to match a staging endpoint
           wait-on-timeout: 120
 
   # =========================================================================
@@ -203,7 +222,16 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
+      # 🌟 FIX: Compute the version tag for the production context
+      - name: Set Dynamic Image Tag
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "IMAGE_TAG=${{ github.ref_name }}" >> $GITHUB_ENV
+          else
+            echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_ENV
+          fi
+
       - name: Deploy to Production
         run: |
-          echo "Gates completely cleared! Deploying SHA ${{ env.IMAGE_TAG }} to Production."
-          # Insert production zero-downtime deployment commands here
+          echo "Gates completely cleared! Deploying tag/sha ${{ env.IMAGE_TAG }} to Production."
+          # Insert your production zero-downtime deployment commands here
