@@ -9,7 +9,7 @@ on:
 env:
   FRONTEND_IMAGE: kubenix/infraops-frontend
   BACKEND_IMAGE: kubenix/infraops-backend
-  DOCKER_REGISTRY: docker.com
+  DOCKER_REGISTRY: docker.io
   DOCKER_ORG: myorg
   SONAR_PROJECT_KEY: infraops-portal
 
@@ -26,7 +26,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: './frontend/package-lock.json'
 
       - name: Install Frontend Dependencies
         working-directory: frontend
